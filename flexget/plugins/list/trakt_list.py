@@ -3,6 +3,7 @@ from builtins import *  # noqa pylint: disable=unused-import, redefined-builtin
 
 import logging
 from collections import MutableSet
+import math
 
 from flexget import plugin
 from flexget.entry import Entry
@@ -94,7 +95,8 @@ class TraktSet(MutableSet):
             'account': {'type': 'string'},
             'list': {'type': 'string'},
             'type': {'type': 'string', 'enum': ['shows', 'seasons', 'episodes', 'movies', 'auto'], 'default': 'auto'},
-            'strip_dates': {'type': 'boolean', 'default': False}
+            'strip_dates': {'type': 'boolean', 'default': False},
+            'language': {'type': 'string', 'minLength': 2, 'maxLength': 2}
         },
         'required': ['list'],
         'anyOf': [{'required': ['username']}, {'required': ['account']}],
@@ -172,6 +174,30 @@ class TraktSet(MutableSet):
                 except ValueError:
                     log.debug('Could not decode json from response: %s', result.text)
                     raise plugin.PluginError('Error getting list from trakt.')
+
+                current_page = int(result.headers.get('X-Pagination-Page', 1))
+                current_page_count = int(result.headers.get('X-Pagination-Page-Count', 1))
+                if current_page < current_page_count:
+                    # Pagination, gotta get it all, but we'll limit it to 1000 per page
+                    # but we'll have to start over from 0
+                    data = []
+
+                    limit = 1000
+                    pagination_item_count = int(result.headers.get('X-Pagination-Item-Count', 0))
+                    number_of_pages = math.ceil(pagination_item_count / limit)
+                    log.debug('Response is paginated. Number of items: %s, number of pages: %s',
+                              pagination_item_count, number_of_pages)
+                    page = int(result.headers.get('X-Pagination-Page'))
+                    while page <= number_of_pages:
+                        paginated_result = self.session.get(get_api_url(endpoint),
+                                                            params={'limit': limit, 'page': page})
+                        page += 1
+                        try:
+                            data.extend(paginated_result.json())
+                        except ValueError:
+                            log.debug('Could not decode json from response: %s', paginated_result.text)
+                            raise plugin.PluginError('Error getting list from trakt.')
+
             except RequestException as e:
                 raise plugin.PluginError('Could not retrieve list from trakt (%s)' % e)
 
@@ -199,7 +225,31 @@ class TraktSet(MutableSet):
                         item['show']['ids']['slug'], item['episode']['season'], item['episode']['number'])
                 else:
                     entry['url'] = 'https://trakt.tv/%ss/%s' % (list_type, item[list_type]['ids'].get('slug'))
+
                 entry.update_using_map(field_maps[list_type], item)
+
+                # get movie name translation
+                language = self.config.get('language')
+                if list_type == 'movie' and language:
+                    endpoint = ['movies', entry['trakt_movie_id'], 'translations', language]
+                    try:
+                        result = self.session.get(get_api_url(endpoint))
+                        try:
+                            translation = result.json()
+                        except ValueError:
+                            raise plugin.PluginError('Error decoding movie translation from trakt: %s.' % result.text)
+                    except RequestException as e:
+                        raise plugin.PluginError('Could not retrieve movie translation from trakt: %s' % str(e))
+                    if not translation:
+                        log.warning('No translation data returned from trakt for movie %s.', entry['title'])
+                    else:
+                        log.verbose('Found `%s` translation for movie `%s`: %s',
+                                    language, entry['movie_name'], translation[0]['title'])
+                        entry['title'] = translation[0]['title']
+                        if entry.get('movie_year'):
+                            entry['title'] += ' (' + str(entry['movie_year']) + ')'
+                        entry['movie_name'] = translation[0]['title']
+
                 # Override the title if strip_dates is on. TODO: a better way?
                 if self.config.get('strip_dates'):
                     if list_type in ['show', 'movie']:
@@ -223,18 +273,20 @@ class TraktSet(MutableSet):
         self._items = None
 
     def get_list_endpoint(self, remove=False, submit=False):
-        # Api restriction, but we could easily extract season and episode info from the 'shows' type
-        if self.config['list'] in ['collection', 'watched'] and self.config['type'] == 'episodes':
-            raise plugin.PluginError('`type` cannot be `%s` for %s list.' % (self.config['type'], self.config['list']))
+        if not submit and self.config['list'] == 'collection' and self.config['type'] == 'episodes':
+            # API restriction as they don't have an endpoint for collected episodes yet
+            if self.config['list'] == 'collection':
+                raise plugin.PluginError('`type` cannot be `episodes` for collection list.')
+            if self.config.get('account'):
+                return ('sync', 'history', 'episodes')
+            else:
+                raise plugin.PluginError('A trakt `account` needs to be configured to get the episode history.')
 
         if self.config['list'] in ['collection', 'watchlist', 'watched', 'ratings']:
             if self.config.get('account'):
-                if self.config['list'] == 'watched':
-                    endpoint = ('sync', 'history')
-                else:
-                    endpoint = ('sync', self.config['list'])
-                    if not submit:
-                        endpoint += (self.config['type'], )
+                endpoint = ('sync', 'history' if self.config['list'] == 'watched' else self.config['list'])
+                if not submit:
+                    endpoint += (self.config['type'], )
             else:
                 endpoint = ('users', self.config['username'], self.config['list'], self.config['type'])
         else:

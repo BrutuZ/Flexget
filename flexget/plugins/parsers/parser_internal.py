@@ -14,13 +14,20 @@ from .parser_common import ParseWarning, MovieParseResult, SeriesParseResult
 log = logging.getLogger('parser_internal')
 
 
+try:
+    preferred_clock = time.process_time
+except AttributeError:
+    preferred_clock = time.clock
+
+
 class ParserInternal(object):
+
     # movie_parser API
 
     @plugin.priority(1)
     def parse_movie(self, data, **kwargs):
         log.debug('Parsing movie: `%s` kwargs: %s', data, kwargs)
-        start = time.clock()
+        start = preferred_clock()
         parser = MovieParser()
         try:
             parser.parse(data)
@@ -31,17 +38,17 @@ class ParserInternal(object):
             name=parser.name,
             year=parser.year,
             quality=parser.quality,
-            proper_count=parser.proper_count
+            proper_count=parser.proper_count,
+            valid=bool(parser.name)
         )
-        end = time.clock()
-        log.debug('Parsing result: %s (in %s ms)', parser, (end - start) * 1000)
+        log.debug('Parsing result: %s (in %s ms)', parser, (preferred_clock() - start) * 1000)
         return result
 
     # series_parser API
     @plugin.priority(1)
     def parse_series(self, data, **kwargs):
         log.debug('Parsing series: `%s` kwargs: %s', data, kwargs)
-        start = time.clock()
+        start = preferred_clock()
         parser = SeriesParser(**kwargs)
         try:
             parser.parse(data)
@@ -64,8 +71,7 @@ class ParserInternal(object):
             strict_name=parser.strict_name,
             identified_by=parser.identified_by
         )
-        end = time.clock()
-        log.debug('Parsing result: %s (in %s ms)', parser, (end - start) * 1000)
+        log.debug('Parsing result: %s (in %s ms)', parser, (preferred_clock() - start) * 1000)
         return result
 
 

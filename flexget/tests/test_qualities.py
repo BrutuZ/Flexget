@@ -102,7 +102,10 @@ class TestQualityParser(object):
         ('Test.File.DTSHD', 'dtshd'),
         ('Test.File.DTS', 'dts'),
         ('Test.File.truehd', 'truehd'),
+        ('Test.File.truehd7.1', 'truehd'),
+        ('Test.File.truehd.7.1', 'truehd'),
         ('Test.File.DTSHDMA', 'dtshd'),
+        ('Test.File.DTSHDMA5.1', 'dtshd'),
         ('Test.File.DD2.0', 'dd5.1'),
         ('Test.File.AC35.1', 'ac3')
     ])
@@ -158,6 +161,11 @@ class TestFilterQuality(object):
             quality: "<=cam <HR"
           min_max:
             quality: HR-720i
+          quality_str:
+            template: no_global
+            mock:
+              - {title: 'Test S01E01 HDTV 1080p', quality: 'hdtv 1080p dd+5.1'}
+            accept_all: yes
     """
 
     @pytest.fixture(scope='class', params=['internal', 'guessit'], ids=['internal', 'guessit'])
@@ -208,6 +216,12 @@ class TestFilterQuality(object):
         assert entry in task.accepted, 'HR should be accepted'
         assert len(task.rejected) == 3, 'wrong number of entries rejected'
         assert len(task.accepted) == 1, 'wrong number of entries accepted'
+
+    def test_quality_string(self, execute_task):
+        task = execute_task('quality_str')
+        entry = task.find_entry('accepted', title='Test S01E01 HDTV 1080p')
+        assert isinstance(entry['quality'], Quality), 'Wrong quality type, should be Quality not str'
+        assert str(entry['quality']) == '1080p hdtv dd+5.1'
 
 
 class TestQualityAudio(object):
