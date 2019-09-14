@@ -5,7 +5,7 @@ import pytest
 
 from flexget.event import fire_event
 from flexget.manager import Session
-from flexget.plugins.modify.variables import Variables
+from flexget.components.variables.variables import Variables
 
 
 @pytest.mark.usefixtures('tmpdir')
@@ -40,7 +40,7 @@ class TestVariablesFromFile(object):
         assert task.accepted[0]['a_field'] == 'first bar then foo end'
 
 
-class TestVariablesFromConfig():
+class TestVariablesFromConfig:
     config = """
       variables:
         mock_entry_list:

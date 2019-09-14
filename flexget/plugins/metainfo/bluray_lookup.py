@@ -6,7 +6,6 @@ import logging
 from flexget import plugin
 from flexget.event import event
 from flexget.manager import Session
-from flexget.plugin import get_plugin_by_name
 from flexget.utils.tools import split_title_year
 from flexget.utils.log import log_once
 
@@ -35,21 +34,19 @@ class PluginBlurayLookup(object):
         'bluray_url': 'url',
         # Generic fields filled by all movie lookup plugins:
         'movie_name': 'name',
-        'movie_year': 'year'
+        'movie_year': 'year',
     }
 
     schema = {'type': 'boolean'}
 
     def lazy_loader(self, entry):
         """Does the lookup for this entry and populates the entry fields."""
-        lookup = get_plugin_by_name('api_bluray').instance.lookup
+        lookup = plugin.get('api_bluray', self).lookup
 
         try:
             with Session() as session:
                 title, year = split_title_year(entry['title'])
-                movie = lookup(title=title,
-                               year=year,
-                               session=session)
+                movie = lookup(title=title, year=year, session=session)
                 entry.update_using_map(self.field_map, movie)
         except LookupError:
             log_once('Bluray lookup failed for %s' % entry['title'], log, logging.WARN)
@@ -77,4 +74,6 @@ class PluginBlurayLookup(object):
 
 @event('plugin.register')
 def register_plugin():
-    plugin.register(PluginBlurayLookup, 'bluray_lookup', api_ver=2, interfaces=['task', 'movie_metainfo'])
+    plugin.register(
+        PluginBlurayLookup, 'bluray_lookup', api_ver=2, interfaces=['task', 'movie_metainfo']
+    )

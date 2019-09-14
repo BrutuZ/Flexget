@@ -1,19 +1,21 @@
 from __future__ import print_function
-import os
-import io
-import shutil
-import zipfile
-import fileinput
 
-import requests
+import fileinput
+import io
+import os
+import shutil
+import subprocess
+import zipfile
+
 import click
+import requests
 
 
 def _get_version():
     with open('flexget/_version.py') as f:
         g = globals()
         l = {}
-        exec (f.read(), g, l)  # pylint: disable=W0122
+        exec(f.read(), g, l)  # pylint: disable=W0122
     if not l['__version__']:
         raise click.ClickException('Could not find __version__ from flexget/_version.py')
     return l['__version__']
@@ -112,6 +114,22 @@ def bundle_webui():
     except (IOError, ValueError) as e:
         click.echo('Unable to download and extract WebUI v2 due to %s' % str(e))
         raise click.Abort()
+
+
+@cli.command()
+@click.argument('files', nargs=-1)
+def autoformat(files):
+    """Reformat code with black and isort"""
+    if not files:
+        project_root = os.path.dirname(os.path.realpath(__file__))
+        files = (project_root,)
+    venv_path = os.environ['VIRTUAL_ENV']
+    if not venv_path:
+        raise Exception('Virtualenv and activation required')
+
+    # black and isort config are in pyproject.toml
+    subprocess.call(('black',) + files)
+    subprocess.call(('isort', '--virtual-env', venv_path, '-rc') + files)
 
 
 if __name__ == '__main__':

@@ -3,6 +3,7 @@ from builtins import *  # noqa pylint: disable=unused-import, redefined-builtin
 from future.moves.xmlrpc import client as xmlrpc_client
 
 import os
+import re
 
 import mock
 
@@ -67,19 +68,28 @@ class TestRTorrentClient(object):
 
         fields = [p for p in called_args[2:]]
         assert len(fields) == 3
-        assert 'd.directory.set=\\/data\\/downloads' in fields
+        # TODO: check the note in clients/rtorrent.py about this escaping.
+        # The client should be fixed to work consistenly on all python versions
+        # Calling re.escape here is a workaround so test works on python 3.7 and older versions
+        assert ('d.directory.set=' + re.escape('/data/downloads')) in fields
         assert 'd.custom1.set=testing' in fields
         assert 'd.priority.set=3' in fields
 
     def test_torrent(self, mocked_proxy):
         mocked_proxy = mocked_proxy()
         mocked_proxy.system.multicall.return_value = [
-            ['/data/downloads'], ['private.torrent'], [torrent_info_hash], ['test_custom1'], [123456]
+            ['/data/downloads'],
+            ['private.torrent'],
+            [torrent_info_hash],
+            ['test_custom1'],
+            [123456],
         ]
 
         client = RTorrent('http://localhost/RPC2')
 
-        torrent = client.torrent(torrent_info_hash, fields=['custom1', 'down_rate'])  # Required fields should be added
+        torrent = client.torrent(
+            torrent_info_hash, fields=['custom1', 'down_rate']
+        )  # Required fields should be added
 
         assert isinstance(torrent, dict)
         assert torrent.get('base_path') == '/data/downloads'
@@ -88,13 +98,17 @@ class TestRTorrentClient(object):
         assert torrent.get('name') == 'private.torrent'
         assert torrent.get('down_rate') == 123456
 
-        assert mocked_proxy.system.multicall.called_with(([
-            {'params': (torrent_info_hash,), 'methodName': 'd.base_path'},
-            {'params': (torrent_info_hash,), 'methodName': 'd.name'},
-            {'params': (torrent_info_hash,), 'methodName': 'd.hash'},
-            {'params': (torrent_info_hash,), 'methodName': 'd.custom1'},
-            {'params': (torrent_info_hash,), 'methodName': 'd.down.rate'},
-        ]))
+        assert mocked_proxy.system.multicall.called_with(
+            (
+                [
+                    {'params': (torrent_info_hash,), 'methodName': 'd.base_path'},
+                    {'params': (torrent_info_hash,), 'methodName': 'd.name'},
+                    {'params': (torrent_info_hash,), 'methodName': 'd.hash'},
+                    {'params': (torrent_info_hash,), 'methodName': 'd.custom1'},
+                    {'params': (torrent_info_hash,), 'methodName': 'd.down.rate'},
+                ]
+            )
+        )
 
     def test_torrents(self, mocked_proxy):
         mocked_proxy = mocked_proxy()
@@ -122,9 +136,9 @@ class TestRTorrentClient(object):
             else:
                 assert False, 'Invalid hash returned'
 
-        assert mocked_proxy.system.multicall.called_with((
-            ['main', 'd.directory_base=', 'd.name=', 'd.hash=', u'd.custom1='],
-        ))
+        assert mocked_proxy.system.multicall.called_with(
+            (['main', 'd.directory_base=', 'd.name=', 'd.hash=', u'd.custom1='],)
+        )
 
     def test_update(self, mocked_proxy):
         mocked_proxy = mocked_proxy()
@@ -141,11 +155,18 @@ class TestRTorrentClient(object):
         resp = client.update(torrent_info_hash, fields=update_fields)
         assert resp == 0
 
-        assert mocked_proxy.system.multicall.called_with(([
-            {'params': (torrent_info_hash, '/data/downloads'), 'methodName': 'd.directory_base'},
-            {'params': (torrent_info_hash, 'test_custom1'), 'methodName': 'd.custom1'},
-            {'params': (torrent_info_hash, '/data/downloads'), 'methodName': 'd.custom1'}
-        ]))
+        assert mocked_proxy.system.multicall.called_with(
+            (
+                [
+                    {
+                        'params': (torrent_info_hash, '/data/downloads'),
+                        'methodName': 'd.directory_base',
+                    },
+                    {'params': (torrent_info_hash, 'test_custom1'), 'methodName': 'd.custom1'},
+                    {'params': (torrent_info_hash, '/data/downloads'), 'methodName': 'd.custom1'},
+                ]
+            )
+        )
 
     def test_delete(self, mocked_proxy):
         mocked_proxy = mocked_proxy()
@@ -160,7 +181,9 @@ class TestRTorrentClient(object):
     def test_move(self, mocked_proxy):
         mocked_proxy = mocked_proxy()
         mocked_proxy.system.multicall.return_value = [
-            ['private.torrent'], [torrent_info_hash], ['/data/downloads'],
+            ['private.torrent'],
+            [torrent_info_hash],
+            ['/data/downloads'],
         ]
 
         mocked_proxy.move.return_value = 0
@@ -170,10 +193,12 @@ class TestRTorrentClient(object):
         client = RTorrent('http://localhost/RPC2')
         client.move(torrent_info_hash, '/new/folder')
 
-        mocked_proxy.execute.throw.assert_has_calls([
-            mock.call('', 'mkdir', '-p', '/new/folder'),
-            mock.call('', 'mv', '-u', '/data/downloads', '/new/folder'),
-        ])
+        mocked_proxy.execute.throw.assert_has_calls(
+            [
+                mock.call('', 'mkdir', '-p', '/new/folder'),
+                mock.call('', 'mv', '-u', '/data/downloads', '/new/folder'),
+            ]
+        )
 
     def test_start(self, mocked_proxy):
         mocked_proxy = mocked_proxy()
@@ -200,12 +225,15 @@ class TestRTorrentClient(object):
 
 @mock.patch('flexget.plugins.clients.rtorrent.RTorrent')
 class TestRTorrentOutputPlugin(object):
-    config = """
+    config = (
+        """
         tasks:
           test_add_torrent:
             accept_all: yes
             mock:
-              - {title: 'test', url: '""" + torrent_url + """'}
+              - {title: 'test', url: '"""
+        + torrent_url
+        + """'}
             rtorrent:
               action: add
               start: yes
@@ -222,7 +250,9 @@ class TestRTorrentOutputPlugin(object):
               priority: low
               custom2: test_custom2
             mock:
-              - {title: 'test', url: '""" + torrent_url + """'}
+              - {title: 'test', url: '"""
+        + torrent_url
+        + """'}
             rtorrent:
               action: add
               start: no
@@ -234,7 +264,9 @@ class TestRTorrentOutputPlugin(object):
               path: /data/downloads
               priority: low
             mock:
-              - {title: 'test', url: '""" + torrent_url + """', 'torrent_info_hash': '09977FE761B8D293AD8A929CCAF2E9322D525A6C'}
+              - {title: 'test', url: '"""
+        + torrent_url
+        + """', 'torrent_info_hash': '09977FE761B8D293AD8A929CCAF2E9322D525A6C'}
             rtorrent:
               action: update
               uri: http://localhost/SCGI
@@ -242,7 +274,9 @@ class TestRTorrentOutputPlugin(object):
           test_update_path:
             accept_all: yes
             mock:
-              - {title: 'test', url: '""" + torrent_url + """', 'torrent_info_hash': '09977FE761B8D293AD8A929CCAF2E9322D525A6C'}
+              - {title: 'test', url: '"""
+        + torrent_url
+        + """', 'torrent_info_hash': '09977FE761B8D293AD8A929CCAF2E9322D525A6C'}
             rtorrent:
               action: update
               custom1: test_custom1
@@ -251,12 +285,15 @@ class TestRTorrentOutputPlugin(object):
           test_delete:
             accept_all: yes
             mock:
-              - {title: 'test', url: '""" + torrent_url + """', 'torrent_info_hash': '09977FE761B8D293AD8A929CCAF2E9322D525A6C'}
+              - {title: 'test', url: '"""
+        + torrent_url
+        + """', 'torrent_info_hash': '09977FE761B8D293AD8A929CCAF2E9322D525A6C'}
             rtorrent:
               action: delete
               uri: http://localhost/SCGI
               custom1: test_custom1
     """
+    )
 
     def test_add(self, mocked_client, execute_task):
         mocked_client = mocked_client()
@@ -287,7 +324,7 @@ class TestRTorrentOutputPlugin(object):
                 'priority': 1,
                 'directory': '/data/downloads',
                 'custom1': 'test_custom1',
-                'custom2': 'test_custom2'
+                'custom2': 'test_custom2',
             },
             start=False,
             mkdir=False,
@@ -303,8 +340,7 @@ class TestRTorrentOutputPlugin(object):
         execute_task('test_update')
 
         mocked_client.update.assert_called_with(
-            torrent_info_hash,
-            {'priority': 1, 'custom1': 'test_custom1'}
+            torrent_info_hash, {'priority': 1, 'custom1': 'test_custom1'}
         )
 
     def test_update_path(self, mocked_client, execute_task):
@@ -316,15 +352,9 @@ class TestRTorrentOutputPlugin(object):
 
         execute_task('test_update_path')
 
-        mocked_client.update.assert_called_with(
-            torrent_info_hash,
-            {'custom1': 'test_custom1'}
-        )
+        mocked_client.update.assert_called_with(torrent_info_hash, {'custom1': 'test_custom1'})
 
-        mocked_client.move.assert_called_with(
-            torrent_info_hash,
-            '/new/path',
-        )
+        mocked_client.move.assert_called_with(torrent_info_hash, '/new/path')
 
     def test_delete(self, mocked_client, execute_task):
         mocked_client = mocked_client()
@@ -371,8 +401,7 @@ class TestRTorrentInputPlugin(object):
         task = execute_task('test_input')
 
         mocked_client.torrents.assert_called_with(
-            'complete',
-            fields=['custom1', 'custom3', 'down_rate'],
+            'complete', fields=['custom1', 'custom3', 'down_rate']
         )
 
         assert len(task.all_entries) == 2

@@ -6,8 +6,8 @@ from builtins import *  # noqa pylint: disable=unused-import, redefined-builtin
 from flexget.api.app import base_message
 
 from flexget.manager import Session
-from flexget.api.plugins.status import ObjectsContainer as OC
-from flexget.plugins.operate.status import StatusTask, TaskExecution
+from flexget.components.status.api import ObjectsContainer as OC
+from flexget.components.status.db import StatusTask, TaskExecution
 from flexget.utils import json
 
 
@@ -260,30 +260,36 @@ class TestTaskStatusPagination(object):
         assert links['prev']['page'] == 1
 
     def test_executions_sorting(self, api_client):
-        ex1 = dict(start=datetime.now() - timedelta(days=7),
-                   end=datetime.now() - timedelta(days=6),
-                   produced=10,
-                   accepted=5,
-                   rejected=2,
-                   failed=0)
+        ex1 = dict(
+            start=datetime.now() - timedelta(days=7),
+            end=datetime.now() - timedelta(days=6),
+            produced=10,
+            accepted=5,
+            rejected=2,
+            failed=0,
+        )
 
-        ex2 = dict(start=datetime.now() - timedelta(days=2),
-                   end=datetime.now() - timedelta(days=1),
-                   produced=1,
-                   accepted=50,
-                   rejected=7,
-                   failed=8,
-                   succeeded=True,
-                   abort_reason='test reason 1')
+        ex2 = dict(
+            start=datetime.now() - timedelta(days=2),
+            end=datetime.now() - timedelta(days=1),
+            produced=1,
+            accepted=50,
+            rejected=7,
+            failed=8,
+            succeeded=True,
+            abort_reason='test reason 1',
+        )
 
-        ex3 = dict(start=datetime.now() - timedelta(days=365),
-                   end=datetime.now() - timedelta(days=300),
-                   produced=2,
-                   accepted=1,
-                   rejected=3,
-                   failed=5,
-                   succeeded=False,
-                   abort_reason='test reason 2')
+        ex3 = dict(
+            start=datetime.now() - timedelta(days=365),
+            end=datetime.now() - timedelta(days=300),
+            produced=2,
+            accepted=1,
+            rejected=3,
+            failed=5,
+            succeeded=False,
+            abort_reason='test reason 2',
+        )
 
         with Session() as session:
             st1 = StatusTask()
