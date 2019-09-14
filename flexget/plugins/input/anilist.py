@@ -4,7 +4,7 @@ from builtins import *  # noqa pylint: disable=unused-import, redefined-builtin
 import logging
 
 from flexget import plugin
-# from flexget.config_schema import one_or_more # Doesn't support the 'default' keyword
+from flexget.config_schema import one_or_more # Doesn't support the 'default' keyword
 from flexget.entry import Entry
 from flexget.event import event
 from flexget.utils.cached_input import cached
@@ -30,11 +30,11 @@ class AniList(object):
         - <current|planning|completed|dropped|paused|repeating>
         ...
       release_status:
-        - <finished|releasing|not_yet_released|cancelled>
+        - <all|finished|releasing|not_yet_released|cancelled>
         - <finished|releasing|not_yet_released|cancelled>
         ...
       format:
-        - <tv|tv_short|movie|special|ova|ona>
+        - <all|tv|tv_short|movie|special|ova|ona>
         - <tv|tv_short|movie|special|ova|ona>
         ...
     """
@@ -43,9 +43,15 @@ class AniList(object):
         'type': 'object',
         'properties': {
             'username': {'type': 'string'},
-            'status': {'type': 'array', 'items': {'type': 'string', 'enum': LIST_STATUS}, 'default': ['current', 'planning']},
-            'release_status': {'type': 'array', 'items': {'type': 'string', 'enum': RELEASE_STATUS}, 'default': ['all']},
-            'format': {'type': 'array', 'items': {'type': 'string', 'enum': ANIME_FORMAT}, 'default': ['all']}
+            'status': one_or_more(
+                {'type': 'string', 'enum': LIST_STATUS}, unique_items=True
+            ),
+            'release_status': one_or_more(
+                {'type': 'string', 'enum': RELEASE_STATUS}, unique_items=True
+            ),
+            'format': one_or_more(
+                {'type': 'string', 'enum': ANIME_FORMAT}, unique_items=True
+            )
         },
         'required': ['username'],
         'additionalProperties': False,
@@ -54,9 +60,9 @@ class AniList(object):
     @cached('anilist', persist='2 hours')
     def on_task_input(self, task, config):
         entries = []
-        selected_list_status = config['status']
-        selected_release_status = config['release_status']
-        selected_formats = config['format']
+        selected_list_status = config['status'] if 'status' in config else ['current', 'planning']
+        selected_release_status = config['release_status'] if 'release_status' in config else ['all']
+        selected_formats = config['format'] if 'format' in config else ['all']
 
         if not isinstance(selected_list_status, list):
             selected_list_status = [selected_list_status]
@@ -96,11 +102,10 @@ class AniList(object):
                 anime = anime['media']
                 has_selected_release_status = (
                     anime['status'].lower() in selected_release_status
-                    # or config['release_status'] == 'all'
                 )
                 has_selected_type = (
                     anime['format'].lower() in selected_formats
-                    or config['format'] == 'all'
+                    or 'all' in selected_formats
                 )
                 if has_selected_type and has_selected_release_status:
                     entries.append(
