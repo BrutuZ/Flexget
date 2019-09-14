@@ -4,7 +4,7 @@ from builtins import *  # noqa pylint: disable=unused-import, redefined-builtin
 import logging
 
 from flexget import plugin
-from flexget.config_schema import one_or_more # Doesn't support the 'default' keyword
+from flexget.config_schema import one_or_more
 from flexget.entry import Entry
 from flexget.event import event
 from flexget.utils.cached_input import cached
@@ -66,8 +66,6 @@ class AniList(object):
 
         if not isinstance(selected_list_status, list):
             selected_list_status = [selected_list_status]
-        # if 'all' in selected_list_status:
-            # selected_list_status = list(LIST_STATUS).remove('all')
 
         if not isinstance(selected_release_status, list):
             selected_release_status = [selected_release_status]
