@@ -137,7 +137,7 @@ class UrlRewriteTorrentday:
 
             # the following should avoid table being None due to a malformed
             # html in td search results
-            soup = get_soup(page).contents[1].contents[1].next.next.nextSibling
+            soup = get_soup(page).contents[1].contents[1].contents[1].next.nextSibling
             table = soup.find('table', {'id': 'torrentTable'})
             if table is None:
                 raise PluginError(
