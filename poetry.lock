@@ -1475,8 +1475,8 @@ jupyter = ["ipywidgets (>=7.5.1,<8.0.0)"]
 
 [[package]]
 name = "rpyc"
-version = "5.1.0"
-description = "Remote Python Call (RPyC), a transparent and symmetric RPC library"
+version = "5.2.3"
+description = "Remote Python Call (RPyC) is a transparent and symmetric distributed computing library"
 category = "main"
 optional = false
 python-versions = ">=3.7"
@@ -1979,7 +1979,7 @@ python-versions = "*"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.7"
-content-hash = "4be887226d277da2745a144fc139745248a065f4813e0fd8ba5cb6485133d3d5"
+content-hash = "808a6048cede869104344c98783d456f2d44589f15a83a4db54b018170109412"
 
 [metadata.files]
 alabaster = [
@@ -3004,7 +3004,8 @@ rich = [
     {file = "rich-12.6.0.tar.gz", hash = "sha256:ba3a3775974105c221d31141f2c116f4fd65c5ceb0698657a11e9f295ec93fd0"},
 ]
 rpyc = [
-    {file = "rpyc-5.1.0-py3-none-any.whl", hash = "sha256:e65ac77f6f90b84e11ae7c1503c104b1e1d3d33a30668726821f0ed21c933cba"},
+    {file = "rpyc-5.2.3-py3-none-any.whl", hash = "sha256:361383f14ce730716d761e17c8054994a99e66ec872a2b4337f0cb877028dbd2"},
+    {file = "rpyc-5.2.3.tar.gz", hash = "sha256:220199bde0841374009b2693d8b9c7aa8bd170840813a22c594d30848ccbb27e"},
 ]
 s3transfer = [
     {file = "s3transfer-0.6.0-py3-none-any.whl", hash = "sha256:06176b74f3a15f61f1b4f25a1fc29a4429040b7647133a463da8fa5bd28d5ecd"},
